@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Room Inventory Planner ☁️</title>
+  
+  <!-- Google Fonts: Itim for cozy Thai typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Itim&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Firebase Compat SDKs (Simple vanilla JS integration for GitHub Pages) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+  <style>
+    :root {
+      --theme-primary: #ff6b8b;
+      --theme-light: #fff0f3;
+      --theme-card-border: #ffd1dc;
+      --theme-badge-bg: #ffe0e6;
+      --theme-badge-text: #d81b60;
+      --theme-glow: rgba(255, 107, 139, 0.35);
+    }
+
+    body[data-theme="checklist"] {
+      --theme-primary: #ff6b8b;
+      --theme-light: #fff0f3;
+      --theme-card-border: #ffccd5;
+      --theme-badge-bg: #ffe3e8;
+      --theme-badge-text: #c2185b;
+      --theme-glow: rgba(255, 107, 139, 0.35);
+    }
+
+    body[data-theme="supplies"] {
+      --theme-primary: #9b6bff;
+      --theme-light: #f7f2ff;
+      --theme-card-border: #e2d4ff;
+      --theme-badge-bg: #ede4ff;
+      --theme-badge-text: #6b21a8;
+      --theme-glow: rgba(155, 107, 255, 0.35);
+    }
+
+    body[data-theme="dryfood"] {
+      --theme-primary: #ff944d;
+      --theme-light: #fff6ed;
+      --theme-card-border: #fedcc2;
+      --theme-badge-bg: #ffe7d3;
+      --theme-badge-text: #c2410c;
+      --theme-glow: rgba(255, 148, 77, 0.35);
+    }
+
+    body[data-theme="freshfood"] {
+      --theme-primary: #2ecc71;
+      --theme-light: #f0fdf4;
+      --theme-card-border: #bbf7d0;
+      --theme-badge-bg: #dcfce7;
+      --theme-badge-text: #15803d;
+      --theme-glow: rgba(46, 204, 113, 0.35);
+    }
+
+    body[data-theme="books"] {
+      --theme-primary: #e6a100;
+      --theme-light: #fffbeb;
+      --theme-card-border: #fde68a;
+      --theme-badge-bg: #fef3c7;
+      --theme-badge-text: #b45309;
+      --theme-glow: rgba(230, 161, 0, 0.35);
+    }
+
+    body[data-theme="medicine"] {
+      --theme-primary: #4d88ff;
+      --theme-light: #f0f5ff;
+      --theme-card-border: #c7dbff;
+      --theme-badge-bg: #dbe7ff;
+      --theme-badge-text: #1d4ed8;
+      --theme-glow: rgba(77, 136, 255, 0.35);
+    }
+
+    * {
+      font-family: 'Itim', cursive, sans-serif;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: #f8fafc;
+      background-image: radial-gradient(#cbd5e1 1.5px, transparent 1.5px);
+      background-size: 18px 18px;
+      transition: background-color 0.35s ease;
+      min-height: 100vh;
+    }
+
+    .theme-transition {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .planner-board {
+      border: 3px dashed var(--theme-card-border);
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.04), 0 4px 14px var(--theme-glow);
+    }
+
+    .washi-tape {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 24px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1.5px dashed var(--theme-primary);
+      border-radius: 4px;
+    }
+
+    /* Floating Bottom Nav */
+    .bottom-nav-bar {
+      position: fixed;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 20px);
+      max-width: 440px;
+      background: #ffffff;
+      height: 68px;
+      border-radius: 28px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08), 0 2px 10px rgba(0, 0, 0, 0.03);
+      border: 1px solid #f1f5f9;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 0 4px;
+      z-index: 50;
+    }
+
+    .nav-btn {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 50px;
+      height: 52px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      color: #94a3b8;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .nav-btn .icon-box {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      font-size: 1.2rem;
+      transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .nav-btn .label-text {
+      font-size: 0.72rem;
+      font-weight: 500;
+      margin-top: 2px;
+      transition: all 0.25s ease;
+    }
+
+    /* Active Popping Bubble Effect */
+    .nav-btn.active .icon-box {
+      transform: translateY(-22px) scale(1.22);
+      background-color: var(--theme-primary);
+      color: #ffffff;
+      width: 46px;
+      height: 46px;
+      box-shadow: 0 8px 18px var(--theme-glow), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+      border: 4px solid #ffffff;
+    }
+
+    .nav-btn.active .label-text {
+      color: var(--theme-primary);
+      font-weight: 700;
+      transform: translateY(-8px);
+    }
+
+    .inventory-card {
+      background: #ffffff;
+      border-radius: 20px;
+      border: 2px solid var(--theme-card-border);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.3s ease;
+    }
+
+    .inventory-card:hover {
+      box-shadow: 0 6px 14px var(--theme-glow);
+    }
+
+    .step-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 9999px;
+      background: #ffffff;
+      color: var(--theme-primary);
+      border: 1.5px solid var(--theme-card-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+      transition: all 0.15s ease;
+    }
+
+    .step-btn:active {
+      transform: scale(0.9);
+      background: var(--theme-light);
+    }
+
+    .cute-chk {
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      border: 2px solid var(--theme-primary);
+      border-radius: 8px;
+      cursor: pointer;
+      display: grid;
+      place-content: center;
+      transition: 0.2s ease;
+      background-color: #fff;
+    }
+
+    .cute-chk::before {
+      content: "✓";
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: bold;
+      transform: scale(0);
+      transition: 0.15s transform ease-in-out;
+    }
+
+    .cute-chk:checked {
+      background-color: var(--theme-primary);
+    }
+
+    .cute-chk:checked::before {
+      transform: scale(1);
+    }
+  </style>
+</head>
+<body data-theme="checklist" class="flex justify-center pb-28 pt-3 px-3">
+
+  <main class="w-full max-w-[430px] flex flex-col gap-4">
+    
+    <!-- Top Sync & Settings Status Ribbon -->
+    <div class="flex items-center justify-between px-2 text-xs">
+      <div id="cloud-badge" onclick="openConfigModal()" class="cursor-pointer flex items-center gap-1.5 px-3 py-1 rounded-full bg-white shadow-sm border border-slate-200 transition hover:bg-slate-50">
+        <span id="sync-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+        <span id="sync-text" class="text-slate-600 font-medium">รอเชื่อมต่อ Firebase</span>
+      </div>
+
+      <button onclick="openConfigModal()" class="flex items-center gap-1 text-slate-500 hover:text-slate-800 bg-white px-2.5 py-1 rounded-full border border-slate-200 shadow-sm text-xs font-medium transition">
+        ⚙️ ตั้งค่าคลาวด์
+      </button>
+    </div>
+
+    <!-- Planner Board Header Banner -->
+    <header class="planner-board relative rounded-3xl p-5 text-center theme-transition">
+      <div class="washi-tape theme-transition flex items-center justify-center text-[10px] text-slate-400 font-mono">
+        ♥ ROOM PLANNER ♥
+      </div>
+      
+      <div class="flex items-center justify-between mb-1 mt-1">
+        <span class="text-xs px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider theme-transition" 
+              id="category-badge"
+              style="background-color: var(--theme-badge-bg); color: var(--theme-badge-text);">
+          To-Buy List
+        </span>
+        <span class="text-xs text-slate-400 flex items-center gap-1">
+          <span>☁️</span> GitHub Pages
+        </span>
+      </div>
+
+      <h1 id="header-title" class="text-2xl font-bold tracking-wide theme-transition" style="color: var(--theme-primary);">
+        📝 สิ่งที่ต้องซื้อ
+      </h1>
+      <p id="header-desc" class="text-xs text-slate-500 mt-0.5">
+        To-Buy Checklist สำหรับไปซูเปอร์มาร์เก็ต
+      </p>
+
+      <!-- Motivational status bar -->
+      <div class="mt-3 py-1.5 px-3 rounded-xl flex items-center justify-between text-[11px] theme-transition"
+           style="background-color: var(--theme-light); color: var(--theme-primary);">
+        <span id="quote-text">🌸 "จัดของเป็นระเบียบ ซื้อไม่พลาด ไม่ซ้ำซ้อน"</span>
+        <span class="font-bold" id="item-counter-summary">0 รายการ</span>
+      </div>
+    </header>
+
+    <!-- 1. หมวด: Checklist ซื้อของ -->
+    <section id="tab-checklist" class="tab-pane flex flex-col gap-3">
+      <div class="flex gap-2">
+        <input type="text" id="checklist-input" 
+               placeholder="พิมพ์ของที่ต้องซื้อเพิ่ม... ✨" 
+               class="flex-1 px-4 py-2.5 rounded-2xl bg-white border-2 border-rose-200 focus:outline-none focus:border-rose-400 text-sm shadow-sm transition placeholder:text-slate-300">
+        <button onclick="addChecklistItem()" 
+                class="px-5 py-2.5 rounded-2xl bg-[#ff6b8b] hover:bg-rose-500 text-white font-bold text-sm shadow-md transition flex items-center gap-1">
+          <span>+</span> เพิ่ม
+        </button>
+      </div>
+
+      <div class="flex justify-between items-center px-1">
+        <span class="text-[11px] text-slate-400">รายการซื้อซ้ำ/เตรียมซื้อ</span>
+        <button onclick="clearCompletedChecklist()" class="text-[11px] text-rose-500 hover:underline">
+          ล้างรายการที่ซื้อแล้ว
+        </button>
+      </div>
+
+      <div id="list-checklist" class="flex flex-col gap-2.5">
+        <!-- Rendered via JS -->
+      </div>
+    </section>
+
+    <!-- 2. หมวด: ของใช้ -->
+    <section id="tab-supplies" class="tab-pane hidden flex flex-col gap-3">
+      <button onclick="openAddItemModal('supplies')" 
+              class="w-full py-2.5 px-4 rounded-2xl bg-white border-2 border-dashed border-purple-300 text-purple-600 font-bold text-sm flex items-center justify-center gap-2 hover:bg-purple-50 transition shadow-sm">
+        <span>+ เพิ่มของใช้ใหม่ (สบู่, แชมพู, ปรับผ้านุ่ม...)</span>
+      </button>
+      <div id="list-supplies" class="flex flex-col gap-3">
+        <!-- Rendered via JS -->
+      </div>
+    </section>
+
+    <!-- 3. หมวด: ของแห้ง -->
+    <section id="tab-dryfood" class="tab-pane hidden flex flex-col gap-3">
+      <button onclick="openAddItemModal('dryfood')" 
+              class="w-full py-2.5 px-4 rounded-2xl bg-white border-2 border-dashed border-orange-300 text-orange-600 font-bold text-sm flex items-center justify-center gap-2 hover:bg-orange-50 transition shadow-sm">
+        <span>+ เพิ่มของแห้งใหม่ (ข้าวสาร, มาม่า, ขนม...)</span>
+      </button>
+      <div id="list-dryfood" class="flex flex-col gap-3">
+        <!-- Rendered via JS -->
+      </div>
+    </section>
+
+    <!-- 4. หมวด: ของสด -->
+    <section id="tab-freshfood" class="tab-pane hidden flex flex-col gap-3">
+      <button onclick="openAddItemModal('freshfood')" 
+              class="w-full py-2.5 px-4 rounded-2xl bg-white border-2 border-dashed border-green-300 text-green-600 font-bold text-sm flex items-center justify-center gap-2 hover:bg-green-50 transition shadow-sm">
+        <span>+ เพิ่มของสดใหม่ (ไข่ไก่, ผัก, เนื้อสัตว์...)</span>
+      </button>
+      <div id="list-freshfood" class="flex flex-col gap-3">
+        <!-- Rendered via JS -->
+      </div>
+    </section>
+
+    <!-- 5. หมวด: หนังสือ -->
+    <section id="tab-books" class="tab-pane hidden flex flex-col gap-3">
+      <button onclick="openAddItemModal('books')" 
+              class="w-full py-2.5 px-4 rounded-2xl bg-white border-2 border-dashed border-amber-300 text-amber-600 font-bold text-sm flex items-center justify-center gap-2 hover:bg-amber-50 transition shadow-sm">
+        <span>+ เพิ่มหนังสือ/มังงะใหม่ (ชื่อเรื่อง, เล่มที่มี)</span>
+      </button>
+      <div id="list-books" class="flex flex-col gap-3">
+        <!-- Rendered via JS -->
+      </div>
+    </section>
+
+    <!-- 6. หมวด: ยาประจำบ้าน -->
+    <section id="tab-medicine" class="tab-pane hidden flex flex-col gap-3">
+      <button onclick="openAddItemModal('medicine')" 
+              class="w-full py-2.5 px-4 rounded-2xl bg-white border-2 border-dashed border-blue-300 text-blue-600 font-bold text-sm flex items-center justify-center gap-2 hover:bg-blue-50 transition shadow-sm">
+        <span>+ เพิ่มยาประจำบ้าน (ชื่อยา, สรรพคุณ, วันหมดอายุ)</span>
+      </button>
+      <div id="list-medicine" class="flex flex-col gap-3">
+        <!-- Rendered via JS -->
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="bottom-nav-bar theme-transition">
+    <!-- Tab 1: Checklist (#ff6b8b) -->
+    <button class="nav-btn active" data-tab="checklist" onclick="activateTab('checklist', this)">
+      <div class="icon-box">📝</div>
+      <span class="label-text">ซื้อของ</span>
+    </button>
+
+    <!-- Tab 2: Supplies (#9b6bff) -->
+    <button class="nav-btn" data-tab="supplies" onclick="activateTab('supplies', this)">
+      <div class="icon-box">🧴</div>
+      <span class="label-text">ของใช้</span>
+    </button>
+
+    <!-- Tab 3: Dry Food (#ff944d) -->
+    <button class="nav-btn" data-tab="dryfood" onclick="activateTab('dryfood', this)">
+      <div class="icon-box">🥫</div>
+      <span class="label-text">ของแห้ง</span>
+    </button>
+
+    <!-- Tab 4: Fresh Food (#2ecc71) -->
+    <button class="nav-btn" data-tab="freshfood" onclick="activateTab('freshfood', this)">
+      <div class="icon-box">🥬</div>
+      <span class="label-text">ของสด</span>
+    </button>
+
+    <!-- Tab 5: Books (#e6a100) -->
+    <button class="nav-btn" data-tab="books" onclick="activateTab('books', this)">
+      <div class="icon-box">📚</div>
+      <span class="label-text">หนังสือ</span>
+    </button>
+
+    <!-- Tab 6: Medicine (#4d88ff) -->
+    <button class="nav-btn" data-tab="medicine" onclick="activateTab('medicine', this)">
+      <div class="icon-box">💊</div>
+      <span class="label-text">ยา</span>
+    </button>
+  </nav>
+
+  <!-- Modal: Add Item Modal -->
+  <div id="add-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 w-full max-w-sm border-2 border-slate-100 shadow-2xl relative">
+      <h3 id="modal-title" class="text-lg font-bold text-slate-700 mb-3 flex items-center gap-2">
+        <span>✨</span> เพิ่มรายการใหม่
+      </h3>
+      
+      <div class="flex flex-col gap-3 text-sm">
+        <div>
+          <label class="block text-xs text-slate-500 mb-1" id="lbl-item-name">ชื่อรายการ</label>
+          <input type="text" id="inp-item-name" class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-pink-400">
+        </div>
+
+        <div id="wrap-field-sub">
+          <label class="block text-xs text-slate-500 mb-1" id="lbl-item-sub">รายละเอียด / สรรพคุณ / โน้ต</label>
+          <input type="text" id="inp-item-sub" class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-pink-400">
+        </div>
+
+        <div class="flex gap-2">
+          <div class="flex-1" id="wrap-field-qty">
+            <label class="block text-xs text-slate-500 mb-1" id="lbl-item-qty">จำนวน / เล่มที่</label>
+            <input type="number" id="inp-item-qty" value="1" min="0" class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-pink-400">
+          </div>
+          <div class="flex-1" id="wrap-field-unit">
+            <label class="block text-xs text-slate-500 mb-1" id="lbl-item-unit">หน่วยนับ (ขวด/ถุง/เล่ม)</label>
+            <input type="text" id="inp-item-unit" class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-pink-400" placeholder="ชิ้น">
+          </div>
+        </div>
+
+        <div id="wrap-field-extra" class="hidden">
+          <label class="block text-xs text-slate-500 mb-1" id="lbl-item-extra">วันหมดอายุ / วันที่ซื้อ</label>
+          <input type="text" id="inp-item-extra" placeholder="เช่น 12/2027 หรือ ซื้อ 24 ก.ย." class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-pink-400">
+        </div>
+      </div>
+
+      <div class="flex gap-2 mt-5">
+        <button onclick="closeAddItemModal()" class="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-600 font-medium text-sm">
+          ยกเลิก
+        </button>
+        <button onclick="submitNewItem()" class="flex-1 py-2.5 rounded-xl bg-pink-500 text-white font-bold text-sm shadow-md hover:bg-pink-600 transition">
+          บันทึก
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Firebase Config Wizard -->
+  <div id="config-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 w-full max-w-md border-2 border-slate-100 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-bold text-slate-700 flex items-center gap-2">
+          <span>⚙️</span> เชื่อมต่อ Firebase Realtime DB
+        </h3>
+        <button onclick="closeConfigModal()" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+      </div>
+
+      <p class="text-xs text-slate-500 mb-3 leading-relaxed">
+        เพื่อให้ข้อมูลซิงก์ตรงระหว่าง<b>คอมและมือถือ</b>แบบ Realtime โดยไม่ต้องฮาร์ดโค้ดคีย์ลงในโค้ด GitHub แปะ <code>firebaseConfig</code> ของคุณที่นี่ (ระบบจะจำไว้ในเครื่องอัตโนมัติ):
+      </p>
+
+      <div class="space-y-2 text-xs">
+        <div>
+          <label class="font-bold text-slate-600">Database URL (จำเป็น):</label>
+          <input type="text" id="cfg-dburl" placeholder="https://your-app-default-rtdb.firebaseio.com" class="w-full mt-1 p-2 rounded-lg border border-slate-200 focus:outline-none focus:border-blue-400 font-mono text-[11px]">
+        </div>
+        <div>
+          <label class="font-bold text-slate-600">API Key:</label>
+          <input type="text" id="cfg-apikey" placeholder="AIzaSy..." class="w-full mt-1 p-2 rounded-lg border border-slate-200 focus:outline-none focus:border-blue-400 font-mono text-[11px]">
+        </div>
+        <div>
+          <label class="font-bold text-slate-600">Project ID:</label>
+          <input type="text" id="cfg-projectid" placeholder="my-room-app" class="w-full mt-1 p-2 rounded-lg border border-slate-200 focus:outline-none focus:border-blue-400 font-mono text-[11px]">
+        </div>
+        <div>
+          <label class="font-bold text-slate-600">Room Sync ID (ตั้งรหัสห้องของคุณเพื่อแชร์กับอุปกรณ์อื่น):</label>
+          <input type="text" id="cfg-roomid" placeholder="my-room-01" class="w-full mt-1 p-2 rounded-lg border border-slate-200 focus:outline-none focus:border-blue-400 font-mono text-[11px]">
+        </div>
+      </div>
+
+      <div class="mt-4 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800">
+        💡 <b>เคล็ดลับ:</b> หากยังไม่ได้สร้าง Firebase สามารถใช้โหมดออฟไลน์ (Local) กดใช้งานทดลองเล่นได้ทันที ข้อมูลจะจำอยู่ในเครื่องครับ!
+      </div>
+
+      <div class="flex gap-2 mt-4">
+        <button onclick="resetToLocalDemo()" class="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-600 font-medium text-xs">
+          ใช้โหมดเครื่อง (Local)
+        </button>
+        <button onclick="saveFirebaseConfig()" class="flex-1 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs shadow-md hover:bg-blue-700 transition">
+          บันทึก & เชื่อมต่อ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Initial Preloaded Demo Data (Pastel Cute Defaults)
+    const defaultData = {
+      checklist: [
+        { id: "c1", text: "ยาสีฟันหลอดใหม่ (กลิ่นมินต์)", done: false },
+        { id: "c2", text: "น้ำยาปรับผ้านุ่ม 2 ถุง", done: false },
+        { id: "c3", text: "ไข่ไก่สด 1 กล่อง", done: true }
+      ],
+      supplies: [
+        { id: "s1", name: "🧴 แชมพูสระผม", desc: "สูตรอ่อนโยนสำหรับผมแห้ง", qty: 2, unit: "ขวด", low: 1 },
+        { id: "s2", name: "🪥 ยาสีฟัน", desc: "รสมินต์สดชื่น", qty: 1, unit: "หลอด", low: 2 },
+        { id: "s3", name: "🫧 น้ำยาล้างจาน", desc: "ถุงรีฟิลขจัดคราบมัน", qty: 3, unit: "ถุง", low: 1 },
+        { id: "s4", name: "🧼 ผงซักฟอก / น้ำยาซักผ้า", desc: "สูตรเข้มข้นถนอมผ้า", qty: 2, unit: "ถุง", low: 1 },
+        { id: "s5", name: "🧺 น้ำยาปรับผ้านุ่ม", desc: "กลิ่นดอกซากุระ", qty: 2, unit: "ถุง", low: 2 }
+      ],
+      dryfood: [
+        { id: "d1", name: "🍚 ข้าวสารหอมมะลิ", desc: "ข้าวหอมมะลิคัดพิเศษ", qty: 1, unit: "ถุง (5กก.)" },
+        { id: "d2", name: "🍜 มาม่าต้มยำกุ้ง", desc: "บะหมี่กึ่งสำเร็จรูป", qty: 8, unit: "ซอง" },
+        { id: "d3", name: "🥔 ขนมมันฝรั่งเลย์", desc: "รสคลาสสิคและสาหร่าย", qty: 3, unit: "ห่อ" }
+      ],
+      freshfood: [
+        { id: "f1", name: "🥚 ไข่ไก่สด", desc: "ซื้อ 22 ก.ย.", qty: 10, unit: "ฟอง", extra: "ควรทานก่อน 10 ต.ค." },
+        { id: "f2", name: "🥛 นมสดพาสเจอร์ไรส์", desc: "รสจืด ขวดใหญ่", qty: 1, unit: "ขวด", extra: "หมดอายุ 30 ก.ย." },
+        { id: "f3", name: "🥩 หมูสันในหั่นชิ้น", desc: "แช่ฟรีซ", qty: 2, unit: "กล่อง", extra: "ซื้อ 23 ก.ย." }
+      ],
+      books: [
+        { id: "b1", name: "📖 วันพีซ (One Piece)", desc: "มังงะผจญภัยโจรสลัด", qty: 108, unit: "เล่ม" },
+        { id: "b2", name: "📖 สไป x แฟมิลี", desc: "มังงะคอเมดี้สายลับ", qty: 13, unit: "เล่ม" },
+        { id: "b3", name: "📖 เกิดใหม่ทั้งทีก็เป็นสไลม์ฯ", desc: "นิยายแฟนตาซี", qty: 19, unit: "เล่ม" }
+      ],
+      medicine: [
+        { id: "m1", name: "💊 พาราเซตามอล (500mg)", desc: "แก้ปวด ลดไข้ ครั้งละ 1 เม็ด", qty: 20, unit: "เม็ด", extra: "12/2027" },
+        { id: "m2", name: "💊 ยาแก้แพ้ (Cetirizine)", desc: "ลดน้ำมูก คันจมูก ลมพิษ", qty: 8, unit: "เม็ด", extra: "05/2026" },
+        { id: "m3", name: "💊 แอร์-เอ็กซ์ (Air-X)", desc: "เคี้ยวก่อนกลืน บรรเทาท้องอืด", qty: 6, unit: "เม็ด", extra: "09/2026" }
+      ]
+    };
+
+    // Category Visual Configuration
+    const categoryConfig = {
+      checklist: {
+        themeKey: 'checklist',
+        title: '📝 สิ่งที่ต้องซื้อ',
+        desc: 'To-Buy Checklist สำหรับไปซูเปอร์มาร์เก็ต',
+        badge: 'To-Buy List'
+      },
+      supplies: {
+        themeKey: 'supplies',
+        title: '🧴 ของใช้ในห้อง',
+        desc: 'แชมพู ยาสีฟัน น้ำยาล้างจาน ผงซักฟอก ปรับผ้านุ่ม',
+        badge: 'Category 02'
+      },
+      dryfood: {
+        themeKey: 'dryfood',
+        title: '🥫 ข้าวสาร & ของแห้ง',
+        desc: 'ข้าวสาร บะหมี่กึ่งสำเร็จรูป ขนมขบเคี้ยว',
+        badge: 'Category 03'
+      },
+      freshfood: {
+        themeKey: 'freshfood',
+        title: '🥬 ของสดในตู้เย็น',
+        desc: 'ไข่ไก่ นมสด เนื้อสัตว์ ผักสด ซื้อ/หมดอายุ',
+        badge: 'Category 04'
+      },
+      books: {
+        themeKey: 'books',
+        title: '📚 หนังสือ & มังงะ',
+        desc: 'เช็กจำนวนเล่มล่าสุดที่มีในห้อง ไม่ซื้อซ้ำ',
+        badge: 'Category 05'
+      },
+      medicine: {
+        themeKey: 'medicine',
+        title: '💊 ยาประจำบ้าน',
+        desc: 'บันทึกยาประจำตัว สรรพคุณ และวันหมดอายุ',
+        badge: 'Category 06'
+      }
+    };
+
+    let currentTab = 'checklist';
+    let appState = JSON.parse(JSON.stringify(defaultData));
+    let firebaseDB = null;
+    let roomSyncPath = 'my-room-01';
+
+    // Initialize App & Storage
+    window.addEventListener('DOMContentLoaded', () => {
+      loadSavedConfig();
+      renderAllTabs();
+      activateTab('checklist', document.querySelector('.nav-btn[data-tab="checklist"]'));
+    });
+
+    /* Tab Switching Functionality */
+    function activateTab(tabKey, btnElement) {
+      currentTab = tabKey;
+      const config = categoryConfig[tabKey];
+      if (!config) return;
+
+      document.body.setAttribute('data-theme', config.themeKey);
+
+      document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+      if (btnElement) btnElement.classList.add('active');
+
+      document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.add('hidden'));
+      const activePane = document.getElementById(`tab-${tabKey}`);
+      if (activePane) activePane.classList.remove('hidden');
+
+      document.getElementById('header-title').innerText = config.title;
+      document.getElementById('header-desc').innerText = config.desc;
+      document.getElementById('category-badge').innerText = config.badge;
+
+      updateSummaryCounter();
+    }
+
+    function updateSummaryCounter() {
+      const items = appState[currentTab] || [];
+      document.getElementById('item-counter-summary').innerText = `${items.length} รายการ`;
+    }
+
+    /* Render All Categories */
+    function renderAllTabs() {
+      renderChecklist();
+      renderSupplies();
+      renderDryFood();
+      renderFreshFood();
+      renderBooks();
+      renderMedicine();
+      updateSummaryCounter();
+    }
+
+    /* Render Checklist */
+    function renderChecklist() {
+      const container = document.getElementById('list-checklist');
+      container.innerHTML = '';
+      const list = appState.checklist || [];
+
+      list.forEach((item, index) => {
+        const card = document.createElement('div');
+        card.className = 'inventory-card p-3.5 flex items-center justify-between gap-3 theme-transition';
+        card.innerHTML = `
+          <label class="flex items-center gap-3 cursor-pointer flex-1">
+            <input type="checkbox" class="cute-chk" ${item.done ? 'checked' : ''} onchange="toggleChecklistDone(${index})">
+            <span class="text-sm font-semibold select-none ${item.done ? 'line-through text-slate-400' : 'text-slate-700'}">
+              ${escapeHtml(item.text)}
+            </span>
+          </label>
+          <button onclick="deleteChecklistItem(${index})" class="text-slate-300 hover:text-rose-500 p-1 text-base transition">✕</button>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    /* Render Supplies */
+    function renderSupplies() {
+      const container = document.getElementById('list-supplies');
+      container.innerHTML = '';
+      (appState.supplies || []).forEach((item, index) => {
+        const isLow = item.low && item.qty <= item.low;
+        const card = document.createElement('div');
+        card.className = 'inventory-card p-4 flex items-center justify-between gap-3 theme-transition';
+        card.innerHTML = `
+          <div class="flex-1">
+            <div class="flex items-center gap-2">
+              <h3 class="font-bold text-slate-700 text-base">${escapeHtml(item.name)}</h3>
+              ${isLow ? '<span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-100 text-rose-600 animate-pulse">ใกล้หมด!</span>' : ''}
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">${escapeHtml(item.desc || '')}</p>
+            <span class="mt-2 inline-block text-[11px] px-2 py-0.5 rounded-md font-medium text-purple-700 bg-purple-100">
+              หน่วย: ${escapeHtml(item.unit || 'ชิ้น')}
+            </span>
+          </div>
+          <div class="flex items-center gap-2 rounded-2xl p-1.5 border border-slate-100 bg-slate-50">
+            <button class="step-btn" onclick="updateQty('supplies', ${index}, -1)">-</button>
+            <span class="w-6 text-center font-bold text-slate-700 text-sm">${item.qty}</span>
+            <button class="step-btn" onclick="updateQty('supplies', ${index}, 1)">+</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    /* Render Dry Food */
+    function renderDryFood() {
+      const container = document.getElementById('list-dryfood');
+      container.innerHTML = '';
+      (appState.dryfood || []).forEach((item, index) => {
+        const card = document.createElement('div');
+        card.className = 'inventory-card p-4 flex items-center justify-between gap-3 theme-transition';
+        card.innerHTML = `
+          <div class="flex-1">
+            <h3 class="font-bold text-slate-700 text-base">${escapeHtml(item.name)}</h3>
+            <p class="text-xs text-slate-500 mt-0.5">${escapeHtml(item.desc || '')}</p>
+            <span class="mt-2 inline-block text-[11px] px-2 py-0.5 rounded-md font-medium text-orange-700 bg-orange-100">
+              หน่วย: ${escapeHtml(item.unit || 'ชิ้น')}
+            </span>
+          </div>
+          <div class="flex items-center gap-2 rounded-2xl p-1.5 border border-slate-100 bg-slate-50">
+            <button class="step-btn" onclick="updateQty('dryfood', ${index}, -1)">-</button>
+            <span class="w-6 text-center font-bold text-slate-700 text-sm">${item.qty}</span>
+            <button class="step-btn" onclick="updateQty('dryfood', ${index}, 1)">+</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    /* Render Fresh Food */
+    function renderFreshFood() {
+      const container = document.getElementById('list-freshfood');
+      container.innerHTML = '';
+      (appState.freshfood || []).forEach((item, index) => {
+        const card = document.createElement('div');
+        card.className = 'inventory-card p-4 flex items-center justify-between gap-3 theme-transition';
+        card.innerHTML = `
+          <div class="flex-1">
+            <h3 class="font-bold text-slate-700 text-base">${escapeHtml(item.name)}</h3>
+            <p class="text-xs text-slate-500 mt-0.5">${escapeHtml(item.desc || '')}</p>
+            ${item.extra ? `<span class="mt-2 inline-block text-[11px] px-2 py-0.5 rounded-md font-medium text-green-700 bg-green-100">⏳ ${escapeHtml(item.extra)}</span>` : ''}
+          </div>
+          <div class="flex items-center gap-2 rounded-2xl p-1.5 border border-slate-100 bg-slate-50">
+            <button class="step-btn" onclick="updateQty('freshfood', ${index}, -1)">-</button>
+            <span class="w-6 text-center font-bold text-slate-700 text-sm">${item.qty}</span>
+            <button class="step-btn" onclick="updateQty('freshfood', ${index}, 1)">+</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    /* Render Books */
+    function renderBooks() {
+      const container = document.getElementById('list-books');
+      container.innerHTML = '';
+      (appState.books || []).forEach((item, index) => {
+        const card = document.createElement('div');
+        card.className = 'inventory-card p-4 flex items-center justify-between gap-3 theme-transition';
+        card.innerHTML = `
+          <div class="flex-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-100 px-2 py-0.5 rounded-md">
+              Collection
+            </span>
+            <h3 class="font-bold text-slate-700 text-base mt-1">${escapeHtml(item.name)}</h3>
+            <p class="text-xs text-slate-500">${escapeHtml(item.desc || '')}</p>
+          </div>
+          <div class="flex flex-col items-end gap-1.5">
+            <div class="text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1 rounded-xl">
+              มีถึงเล่ม <span class="text-sm font-bold">${item.qty}</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button class="step-btn text-xs w-6 h-6" onclick="updateQty('books', ${index}, -1)">-</button>
+              <button class="step-btn text-xs w-6 h-6" onclick="updateQty('books', ${index}, 1)">+</button>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    /* Render Medicine */
+    function renderMedicine() {
+      const container = document.getElementById('list-medicine');
+      container.innerHTML = '';
+      (appState.medicine || []).forEach((item, index) => {
+        const card = document.createElement('div');
+        card.className = 'inventory-card p-4 flex items-center justify-between gap-3 theme-transition';
+        card.innerHTML = `
+          <div class="flex-1">
+            <h3 class="font-bold text-slate-700 text-base">${escapeHtml(item.name)}</h3>
+            <p class="text-xs text-slate-500 mt-0.5">${escapeHtml(item.desc || '')}</p>
+            ${item.extra ? `<div class="mt-2"><span class="text-[11px] px-2 py-0.5 rounded-md font-medium text-blue-700 bg-blue-100">⏳ Exp: ${escapeHtml(item.extra)}</span></div>` : ''}
+          </div>
+          <div class="flex items-center gap-2 rounded-2xl p-1.5 border border-slate-100 bg-slate-50">
+            <button class="step-btn" onclick="updateQty('medicine', ${index}, -1)">-</button>
+            <span class="w-6 text-center font-bold text-slate-700 text-sm">${item.qty}</span>
+            <button class="step-btn" onclick="updateQty('medicine', ${index}, 1)">+</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    /* Counter Stepper Handler */
+    function updateQty(category, index, delta) {
+      if (!appState[category] || !appState[category][index]) return;
+      let val = appState[category][index].qty || 0;
+      val = Math.max(0, val + delta);
+      appState[category][index].qty = val;
+      renderAllTabs();
+      syncStateToCloud();
+    }
+
+    /* Checklist Actions */
+    function addChecklistItem() {
+      const input = document.getElementById('checklist-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      if (!appState.checklist) appState.checklist = [];
+      appState.checklist.unshift({
+        id: "c_" + Date.now(),
+        text: text,
+        done: false
+      });
+
+      input.value = '';
+      renderChecklist();
+      updateSummaryCounter();
+      syncStateToCloud();
+    }
+
+    function toggleChecklistDone(index) {
+      if (appState.checklist && appState.checklist[index]) {
+        appState.checklist[index].done = !appState.checklist[index].done;
+        renderChecklist();
+        syncStateToCloud();
+      }
+    }
+
+    function deleteChecklistItem(index) {
+      if (appState.checklist) {
+        appState.checklist.splice(index, 1);
+        renderChecklist();
+        updateSummaryCounter();
+        syncStateToCloud();
+      }
+    }
+
+    function clearCompletedChecklist() {
+      if (appState.checklist) {
+        appState.checklist = appState.checklist.filter(item => !item.done);
+        renderChecklist();
+        updateSummaryCounter();
+        syncStateToCloud();
+      }
+    }
+
+    // Enter Key shortcut for checklist
+    document.getElementById('checklist-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addChecklistItem();
+      }
+    });
+
+    /* Modal Form for Adding Custom Item */
+    let targetCategoryForAdd = 'supplies';
+
+    function openAddItemModal(category) {
+      targetCategoryForAdd = category;
+      const modal = document.getElementById('add-modal');
+      const title = document.getElementById('modal-title');
+      const extraWrap = document.getElementById('wrap-field-extra');
+      const extraLbl = document.getElementById('lbl-item-extra');
+
+      // Reset Inputs
+      document.getElementById('inp-item-name').value = '';
+      document.getElementById('inp-item-sub').value = '';
+      document.getElementById('inp-item-qty').value = '1';
+      document.getElementById('inp-item-unit').value = '';
+      document.getElementById('inp-item-extra').value = '';
+
+      extraWrap.classList.add('hidden');
+
+      if (category === 'medicine') {
+        title.innerHTML = '<span>💊</span> เพิ่มยาประจำบ้าน';
+        document.getElementById('lbl-item-name').innerText = 'ชื่อยา';
+        document.getElementById('lbl-item-sub').innerText = 'สรรพคุณ / วิธีใช้';
+        document.getElementById('inp-item-unit').value = 'เม็ด';
+        extraWrap.classList.remove('hidden');
+        extraLbl.innerText = 'วันหมดอายุ (Exp Date เช่น 12/2027)';
+      } else if (category === 'books') {
+        title.innerHTML = '<span>📚</span> เพิ่มหนังสือ/มังงะ';
+        document.getElementById('lbl-item-name').innerText = 'ชื่อเรื่อง';
+        document.getElementById('lbl-item-sub').innerText = 'แนวหนังสือ / รายละเอียด';
+        document.getElementById('lbl-item-qty').innerText = 'มีถึงเล่มที่';
+        document.getElementById('inp-item-unit').value = 'เล่ม';
+      } else if (category === 'freshfood') {
+        title.innerHTML = '<span>🥬</span> เพิ่มของสด';
+        document.getElementById('lbl-item-name').innerText = 'ชื่อของสด';
+        document.getElementById('lbl-item-sub').innerText = 'โน้ต (เช่น แช่เย็น/แช่ฟรีซ)';
+        document.getElementById('inp-item-unit').value = 'แพ็ค';
+        extraWrap.classList.remove('hidden');
+        extraLbl.innerText = 'วันที่ซื้อ หรือ ควรบริโภคก่อน';
+      } else if (category === 'dryfood') {
+        title.innerHTML = '<span>🥫</span> เพิ่มของแห้ง';
+        document.getElementById('lbl-item-name').innerText = 'ชื่ออาหารแห้ง';
+        document.getElementById('lbl-item-sub').innerText = 'โน้ตเพิ่มเติม';
+        document.getElementById('inp-item-unit').value = 'ซอง';
+      } else {
+        title.innerHTML = '<span>🧴</span> เพิ่มของใช้';
+        document.getElementById('lbl-item-name').innerText = 'ชื่อของใช้';
+        document.getElementById('lbl-item-sub').innerText = 'รายละเอียด / จุดประสงค์';
+        document.getElementById('inp-item-unit').value = 'ขวด';
+      }
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeAddItemModal() {
+      document.getElementById('add-modal').classList.add('hidden');
+    }
+
+    function submitNewItem() {
+      const name = document.getElementById('inp-item-name').value.trim();
+      const desc = document.getElementById('inp-item-sub').value.trim();
+      const qty = parseInt(document.getElementById('inp-item-qty').value, 10) || 0;
+      const unit = document.getElementById('inp-item-unit').value.trim() || 'ชิ้น';
+      const extra = document.getElementById('inp-item-extra').value.trim();
+
+      if (!name) return;
+
+      const newItem = {
+        id: "item_" + Date.now(),
+        name,
+        desc,
+        qty,
+        unit,
+        extra
+      };
+
+      if (!appState[targetCategoryForAdd]) appState[targetCategoryForAdd] = [];
+      appState[targetCategoryForAdd].push(newItem);
+
+      closeAddItemModal();
+      renderAllTabs();
+      syncStateToCloud();
+    }
+
+    function loadSavedConfig() {
+      const savedConfig = localStorage.getItem('room_inventory_fb_cfg');
+      const savedRoom = localStorage.getItem('room_inventory_room_id') || 'my-room-01';
+      roomSyncPath = savedRoom;
+
+      if (savedConfig) {
+        try {
+          const cfg = JSON.parse(savedConfig);
+          document.getElementById('cfg-dburl').value = cfg.databaseURL || '';
+          document.getElementById('cfg-apikey').value = cfg.apiKey || '';
+          document.getElementById('cfg-projectid').value = cfg.projectId || '';
+          document.getElementById('cfg-roomid').value = savedRoom;
+          initFirebase(cfg, savedRoom);
+        } catch (e) {
+          console.error("Config parse error", e);
+        }
+      } else {
+        // Local mode fallback
+        const localData = localStorage.getItem('room_inventory_local_db');
+        if (localData) {
+          try {
+            appState = JSON.parse(localData);
+          } catch(e) {}
+        }
+        updateSyncBadge('local', 'โหมดเครื่อง (Local)');
+      }
+    }
+
+    function initFirebase(config, roomId) {
+      try {
+        if (!firebase.apps.length) {
+          firebase.initializeApp(config);
+        }
+        firebaseDB = firebase.database();
+        updateSyncBadge('syncing', 'กำลังซิงก์ข้อมูล...');
+
+        // Realtime Listener
+        const roomRef = firebaseDB.ref('rooms/' + roomId);
+        roomRef.on('value', (snapshot) => {
+          const val = snapshot.val();
+          if (val) {
+            appState = val;
+            renderAllTabs();
+            updateSyncBadge('online', 'ซิงก์คลาวด์แล้ว 🟢');
+          } else {
+            // First time room creation: push default data
+            roomRef.set(appState);
+            updateSyncBadge('online', 'สร้างห้องออนไลน์แล้ว 🟢');
+          }
+        }, (error) => {
+          console.error("Firebase read error", error);
+          updateSyncBadge('error', 'เชื่อมต่อไม่สำเร็จ');
+        });
+
+      } catch (err) {
+        console.error("Firebase init failed", err);
+        updateSyncBadge('error', 'ตั้งค่าไม่ถูกต้อง');
+      }
+    }
+
+    function syncStateToCloud() {
+      // 1. Always save locally as immediate cache
+      localStorage.setItem('room_inventory_local_db', JSON.stringify(appState));
+
+      // 2. Sync to Firebase if connected
+      if (firebaseDB && roomSyncPath) {
+        updateSyncBadge('syncing', 'กำลังบันทึก...');
+        firebaseDB.ref('rooms/' + roomSyncPath).set(appState)
+          .then(() => {
+            updateSyncBadge('online', 'ซิงก์คลาวด์แล้ว 🟢');
+          })
+          .catch((err) => {
+            console.error("Sync error", err);
+            updateSyncBadge('error', 'บันทึกคลาวด์ล้มเหลว');
+          });
+      }
+    }
+
+    function saveFirebaseConfig() {
+      const dbURL = document.getElementById('cfg-dburl').value.trim();
+      const apiKey = document.getElementById('cfg-apikey').value.trim();
+      const projectId = document.getElementById('cfg-projectid').value.trim();
+      const roomId = document.getElementById('cfg-roomid').value.trim() || 'my-room-01';
+
+      if (!dbURL) {
+        return;
+      }
+
+      const cfg = {
+        databaseURL: dbURL,
+        apiKey: apiKey,
+        projectId: projectId
+      };
+
+      localStorage.setItem('room_inventory_fb_cfg', JSON.stringify(cfg));
+      localStorage.setItem('room_inventory_room_id', roomId);
+      roomSyncPath = roomId;
+
+      closeConfigModal();
+      initFirebase(cfg, roomId);
+    }
+
+    function resetToLocalDemo() {
+      localStorage.removeItem('room_inventory_fb_cfg');
+      firebaseDB = null;
+      closeConfigModal();
+      updateSyncBadge('local', 'โหมดเครื่อง (Local)');
+    }
+
+    function updateSyncBadge(status, text) {
+      const dot = document.getElementById('sync-dot');
+      const label = document.getElementById('sync-text');
+
+      label.innerText = text;
+      dot.className = 'w-2.5 h-2.5 rounded-full';
+
+      if (status === 'online') {
+        dot.classList.add('bg-emerald-500');
+      } else if (status === 'syncing') {
+        dot.classList.add('bg-blue-400', 'animate-ping');
+      } else if (status === 'error') {
+        dot.classList.add('bg-rose-500');
+      } else {
+        dot.classList.add('bg-amber-400');
+      }
+    }
+
+    function openConfigModal() {
+      document.getElementById('config-modal').classList.remove('hidden');
+    }
+
+    function closeConfigModal() {
+      document.getElementById('config-modal').classList.add('hidden');
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  </script>
+</body>
+</html>
